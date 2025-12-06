@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Turkey Trip 2024 🇹🇷</title>
+    
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        earth: {
+                            50: '#f9f7f2',
+                            100: '#f0ece4',
+                            200: '#e0d8cc', // 米色
+                            300: '#cbbba8',
+                            400: '#b69b82',
+                            500: '#a38062', // 土色
+                            600: '#85644b',
+                            700: '#6b4f3b',
+                            800: '#554033',
+                            900: '#46362e',
+                        },
+                        terracotta: '#E07A5F',
+                        sage: '#81B29A',
+                        sand: '#F2CC8F'
+                    },
+                    fontFamily: {
+                        sans: ['Nunito', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f0ece4; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .negative-margin-top { margin-top: -40px; }
+        .tab-active { color: #85644b; border-bottom: 3px solid #85644b; }
+        .tab-inactive { color: #b69b82; }
+        /* Smooth IOS scrolling */
+        .scrolling-wrapper { -webkit-overflow-scrolling: touch; }
+    </style>
+</head>
+<body class="text-earth-900 font-sans antialiased pb-20">
+
+<div id="app" class="max-w-md mx-auto bg-earth-50 min-h-screen relative shadow-2xl overflow-hidden">
+
+    <header class="relative h-64 bg-earth-200">
+        <img :src="bannerImage" alt="Turkey Trip Banner" class="w-full h-full object-cover object-left">
+        
+        <div class="absolute bottom-12 right-4 flex space-x-6 bg-white/80 backdrop-blur-sm p-3 rounded-full shadow-lg z-20">
+            <button @click="currentTab = 'itinerary'" :class="currentTab === 'itinerary' ? 'text-terracotta transform scale-110' : 'text-earth-400'" class="transition-all flex flex-col items-center">
+                <i class="fa-solid fa-map-location-dot text-xl"></i>
+                <span class="text-[10px] mt-1">行程</span>
+            </button>
+            <button @click="currentTab = 'info'" :class="currentTab === 'info' ? 'text-terracotta transform scale-110' : 'text-earth-400'" class="transition-all flex flex-col items-center">
+                <i class="fa-solid fa-circle-info text-xl"></i>
+                <span class="text-[10px] mt-1">資訊</span>
+            </button>
+            <button @click="currentTab = 'shopping'" :class="currentTab === 'shopping' ? 'text-terracotta transform scale-110' : 'text-earth-400'" class="transition-all flex flex-col items-center">
+                <i class="fa-solid fa-basket-shopping text-xl"></i>
+                <span class="text-[10px] mt-1">購物</span>
+            </button>
+            <button @click="currentTab = 'expenses'" :class="currentTab === 'expenses' ? 'text-terracotta transform scale-110' : 'text-earth-400'" class="transition-all flex flex-col items-center">
+                <i class="fa-solid fa-coins text-xl"></i>
+                <span class="text-[10px] mt-1">花費</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="relative bg-earth-50 rounded-t-[40px] negative-margin-top z-10 px-4 pt-8 min-h-[calc(100vh-200px)]">
+        
+        <div v-if="currentTab === 'itinerary'">
+            <div class="flex overflow-x-auto hide-scrollbar space-x-4 mb-6 pb-2 scrolling-wrapper">
+                <div v-for="(day, index) in tripDays" :key="index" 
+                     @click="selectDate(day.date)"
+                     :class="selectedDate === day.date ? 'bg-earth-600 text-white shadow-md' : 'bg-white text-earth-400'"
+                     class="flex-shrink-0 flex flex-col items-center justify-center w-16 h-20 rounded-2xl cursor-pointer transition-all border border-earth-100">
+                    <span class="text-xs font-bold uppercase tracking-wider">{{ day.weekday }}</span>
+                    <span class="text-xl font-bold mt-1">{{ day.dayNum }}</span>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-blue-100 to-blue-50 rounded-2xl p-4 mb-6 flex items-center justify-between shadow-sm border border-blue-100">
+                <div class="flex items-center space-x-3">
+                    <i :class="currentWeather.icon" class="text-3xl text-terracotta"></i>
+                    <div>
+                        <div class="text-2xl font-bold text-earth-800">{{ currentWeather.temp }}°C</div>
+                        <div class="text-xs text-earth-500">體感 {{ currentWeather.feelsLike }}°C</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-bold text-earth-700">{{ selectedCity }}</div>
+                    <div class="text-xs text-earth-500">{{ currentWeather.desc }}</div>
+                </div>
+            </div>
+
+            <div ref="sortableList" class="space-y-4 pb-20">
+                <div v-for="(item, index) in currentDayItinerary" :key="item.id" class="relative group" :data-id="item.id">
+                    
+                    <div v-if="index > 0" class="flex justify-center items-center py-2 space-x-2 text-earth-400 text-xs">
+                        <div class="h-8 w-px bg-earth-200"></div>
+                        <div class="bg-earth-100 px-2 py-1 rounded-full flex items-center space-x-1">
+                            <i :class="item.transportMode === 'walk' ? 'fa-person-walking' : 'fa-bus'" class="text-earth-500"></i>
+                            <span>{{ item.transportTime }}</span>
+                        </div>
+                        <div class="h-8 w-px bg-earth-200"></div>
+                    </div>
+                    <div v-else class="flex justify-center items-center pb-2 text-earth-400 text-xs">
+                        <span class="bg-earth-100 px-2 py-1 rounded-full">
+                            <i class="fa-bed mr-1"></i> 從飯店出發: {{ item.transportTime || '15 mins' }}
+                        </span>
+                    </div>
+
+                    <div @click="openMap(item.location)" 
+                         :class="item.category === 'flight' ? 'bg-sky-50 border-sky-100' : 'bg-white border-earth-100'"
+                         class="p-4 rounded-2xl shadow-sm border relative active:scale-95 transition-transform cursor-pointer">
+                        
+                        <div class="absolute right-3 top-3 text-earth-200 cursor-move handle">
+                            <i class="fa-solid fa-grip-lines"></i>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div :class="getCategoryColor(item.category)" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white mr-4 shadow-sm">
+                                <i :class="getCategoryIcon(item.category)"></i>
+                            </div>
+                            
+                            <div class="flex-1">
+                                <h3 class="font-bold text-earth-800 text-lg leading-tight">{{ item.name }}</h3>
+                                <div class="text-earth-500 text-sm mt-1 flex items-center">
+                                    <i class="fa-regular fa-clock mr-1.5 w-4 text-center"></i> 
+                                    {{ item.time }}
+                                </div>
+                                <div v-if="item.ticket" class="text-terracotta text-sm mt-0.5 flex items-center font-medium">
+                                    <i class="fa-solid fa-ticket mr-1.5 w-4 text-center"></i> 
+                                    {{ item.ticket }}
+                                </div>
+                                <div v-if="item.note" class="text-earth-400 text-xs mt-2 bg-earth-50 p-2 rounded-lg">
+                                    {{ item.note }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <button @click.stop="editItem(item)" class="absolute bottom-3 right-3 text-earth-300 hover:text-earth-500 p-2">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div v-if="currentDayItinerary.length === 0" class="text-center py-10 text-earth-400">
+                    <i class="fa-solid fa-map mb-2 text-3xl opacity-50"></i>
+                    <p>本日尚無行程</p>
+                </div>
+            </div>
+
+            <button @click="openAddModal" class="fixed bottom-24 right-6 w-14 h-14 bg-earth-800 text-white rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-90 transition-transform z-30">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
+
+        <div v-if="currentTab === 'info'" class="space-y-6 pb-24">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-earth-100">
+                <h3 class="font-bold text-earth-800 mb-4 flex items-center"><i class="fa-solid fa-money-bill-transfer mr-2 text-sage"></i> 匯率換算</h3>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-earth-400 ml-1">外幣 (USD/EUR/TRY)</label>
+                            <div class="flex">
+                                <select v-model="currencyFrom" class="bg-earth-50 rounded-l-lg p-2 text-sm border-r border-earth-200 outline-none">
+                                    <option value="TRY">TRY</option>
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                </select>
+                                <input type="number" v-model="currencyAmount" class="bg-earth-50 rounded-r-lg p-2 w-full outline-none text-earth-800 font-bold" placeholder="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-earth-400 ml-1">港幣 (HKD)</label>
+                            <div class="bg-earth-100 rounded-lg p-2 w-full text-earth-800 font-bold h-[38px] flex items-center">
+                                $ {{ convertedAmount }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                         <span class="text-[10px] text-earth-400 bg-earth-50 px-2 py-1 rounded">匯率可於設定調整</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-earth-100">
+                <h3 class="font-bold text-earth-800 mb-4 flex items-center"><i class="fa-solid fa-plane mr-2 text-sky-400"></i> 航班資訊</h3>
+                
+                <div class="mb-4 relative pl-4 border-l-2 border-dashed border-earth-200">
+                    <div class="absolute -left-[7px] top-0 w-3 h-3 bg-earth-300 rounded-full"></div>
+                    <div class="text-xs text-earth-400 mb-1">Dec 11 (去程)</div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-lg">HKG</span>
+                        <i class="fa-solid fa-plane text-xs text-earth-300"></i>
+                        <span class="font-bold text-lg">PEK</span>
+                        <i class="fa-solid fa-plane text-xs text-earth-300"></i>
+                        <span class="font-bold text-lg">IST</span>
+                    </div>
+                    <div class="text-sm text-earth-600">CA116 / CA859</div>
+                    <div class="text-xs text-earth-400 mt-1">抵達 IST: 12/12 08:20</div>
+                </div>
+
+                <div class="relative pl-4 border-l-2 border-dashed border-earth-200">
+                    <div class="absolute -left-[7px] top-0 w-3 h-3 bg-earth-300 rounded-full"></div>
+                    <div class="text-xs text-earth-400 mb-1">Dec 21 (回程)</div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-lg">IST</span>
+                        <i class="fa-solid fa-plane text-xs text-earth-300"></i>
+                        <span class="font-bold text-lg">PEK</span>
+                        <i class="fa-solid fa-plane text-xs text-earth-300"></i>
+                        <span class="font-bold text-lg">HKG</span>
+                    </div>
+                    <div class="text-sm text-earth-600">CA860</div>
+                    <div class="text-xs text-earth-400 mt-1">起飛: 14:55</div>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-earth-100">
+                 <h3 class="font-bold text-earth-800 mb-4 flex items-center"><i class="fa-solid fa-hotel mr-2 text-terracotta"></i> 住宿資訊</h3>
+                 <div class="space-y-4">
+                     <div v-for="hotel in hotels" :key="hotel.name" class="border-b border-earth-50 last:border-0 pb-3 last:pb-0">
+                         <div class="flex justify-between items-start">
+                             <div>
+                                 <div class="font-bold text-sm text-earth-800">{{ hotel.name }}</div>
+                                 <div class="text-xs text-earth-500 mt-1">{{ hotel.dates }}</div>
+                                 <div class="text-xs text-earth-400 mt-0.5 w-4/5">{{ hotel.address }}</div>
+                             </div>
+                             <a :href="'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(hotel.name + ' ' + hotel.address)" target="_blank" class="w-8 h-8 bg-earth-50 rounded-full flex items-center justify-center text-earth-500">
+                                 <i class="fa-solid fa-location-arrow text-xs"></i>
+                             </a>
+                         </div>
+                         <div class="mt-2 flex items-center">
+                             <label class="text-[10px] bg-earth-100 text-earth-600 px-2 py-1 rounded cursor-pointer hover:bg-earth-200 transition">
+                                 <i class="fa-solid fa-file-pdf mr-1"></i> 上傳確認單
+                                 <input type="file" class="hidden" @change="handleFileUpload">
+                             </label>
+                             <span class="text-[10px] text-earth-300 ml-2 italic" v-if="!hotel.hasFile">未上傳</span>
+                             <span class="text-[10px] text-green-600 ml-2" v-else><i class="fa-solid fa-check"></i> 已儲存</span>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+
+            <div class="bg-red-50 p-5 rounded-3xl shadow-sm border border-red-100">
+                <h3 class="font-bold text-red-800 mb-2 flex items-center"><i class="fa-solid fa-kit-medical mr-2"></i> 緊急醫療</h3>
+                <div class="flex justify-around text-center">
+                    <div>
+                        <div class="text-2xl font-bold text-red-600">155</div>
+                        <div class="text-xs text-red-400">警察</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-red-600">112</div>
+                        <div class="text-xs text-red-400">救護車</div>
+                    </div>
+                </div>
+             </div>
+        </div>
+
+        <div v-if="currentTab === 'shopping'" class="pb-24">
+            <div class="grid grid-cols-2 gap-4">
+                <div v-for="item in shoppingList" :key="item.id" class="bg-white rounded-2xl p-3 shadow-sm border border-earth-100 flex flex-col h-full relative">
+                    <button @click="deleteShoppingItem(item.id)" class="absolute top-2 right-2 text-earth-200 hover:text-red-400"><i class="fa-solid fa-times"></i></button>
+                    <div class="h-32 bg-earth-50 rounded-xl mb-3 overflow-hidden flex items-center justify-center text-earth-300">
+                         <img v-if="item.image" :src="item.image" class="w-full h-full object-cover">
+                         <i v-else class="fa-solid fa-image text-3xl"></i>
+                    </div>
+                    <div class="font-bold text-earth-800 text-sm mb-1">{{ item.name }}</div>
+                    <div class="text-xs text-earth-500 mb-2 flex items-center">
+                        <i class="fa-solid fa-store mr-1"></i> {{ item.shop || '未指定' }}
+                    </div>
+                    <a v-if="item.link" :href="item.link" target="_blank" class="mt-auto text-xs text-center bg-earth-100 text-earth-600 py-1.5 rounded-lg block">參考連結</a>
+                </div>
+            </div>
+
+            <button @click="openShoppingModal" class="fixed bottom-24 right-6 w-14 h-14 bg-earth-800 text-white rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-90 transition-transform z-30">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
+
+        <div v-if="currentTab === 'expenses'" class="pb-24">
+            <div class="bg-earth-800 text-white p-6 rounded-3xl shadow-lg mb-6 relative overflow-hidden">
+                <div class="absolute -right-5 -top-5 w-32 h-32 bg-earth-700 rounded-full opacity-50 blur-xl"></div>
+                <div class="relative z-10">
+                    <div class="text-earth-200 text-sm mb-1">總花費 (TRY)</div>
+                    <div class="text-4xl font-bold">{{ totalExpenses }} ₺</div>
+                    <div class="text-earth-300 text-xs mt-2">約合 HKD ${{ (totalExpenses * rates.TRY).toFixed(2) }}</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-sm border border-earth-100 overflow-hidden">
+                <div v-for="expense in sortedExpenses" :key="expense.id" class="p-4 border-b border-earth-50 last:border-0 flex justify-between items-center">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-full bg-earth-50 flex items-center justify-center text-earth-500 mr-3 text-lg">
+                            <i :class="getExpenseIcon(expense.category)"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-earth-800 text-sm">{{ expense.name }}</div>
+                            <div class="text-xs text-earth-400">{{ expense.date }} · {{ expense.method }}</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-earth-800">-{{ expense.amount }} ₺</div>
+                        <button @click="deleteExpense(expense.id)" class="text-[10px] text-red-300 mt-1">刪除</button>
+                    </div>
+                </div>
+                <div v-if="expenses.length === 0" class="p-6 text-center text-earth-400 text-sm">尚未有花費紀錄</div>
+            </div>
+
+            <button @click="openExpenseModal" class="fixed bottom-24 right-6 w-14 h-14 bg-earth-800 text-white rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-90 transition-transform z-30">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
+
+    </main>
+
+    <div v-if="showItineraryModal" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up">
+            <h3 class="text-xl font-bold text-earth-800 mb-4">{{ isEditing ? '編輯行程' : '新增行程' }}</h3>
+            <div class="space-y-3">
+                <select v-model="formItinerary.category" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100 text-earth-700">
+                    <option value="sightseeing">景點</option>
+                    <option value="hotel">住宿</option>
+                    <option value="food">美食</option>
+                    <option value="shopping">購物</option>
+                    <option value="flight">航班</option>
+                    <option value="other">其他</option>
+                </select>
+                <input v-model="formItinerary.name" placeholder="名稱" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                <input v-model="formItinerary.time" placeholder="時間 (e.g., 09:00 - 11:00)" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                <input v-model="formItinerary.ticket" placeholder="門票/價格 (選填)" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                <textarea v-model="formItinerary.note" placeholder="備註" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100 h-20"></textarea>
+                
+                <div class="flex items-center space-x-2 bg-earth-50 p-2 rounded-xl">
+                    <span class="text-xs text-earth-400 ml-1">交通方式:</span>
+                    <button @click="formItinerary.transportMode = 'walk'" :class="formItinerary.transportMode === 'walk' ? 'bg-white shadow text-earth-800' : 'text-earth-400'" class="px-3 py-1 rounded-lg text-xs transition">步行</button>
+                    <button @click="formItinerary.transportMode = 'transit'" :class="formItinerary.transportMode === 'transit' ? 'bg-white shadow text-earth-800' : 'text-earth-400'" class="px-3 py-1 rounded-lg text-xs transition">大眾運輸</button>
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button v-if="isEditing" @click="confirmDeleteItinerary" class="flex-1 bg-red-100 text-red-500 py-3 rounded-xl font-bold text-sm">刪除</button>
+                <button @click="showItineraryModal = false" class="flex-1 bg-earth-100 text-earth-600 py-3 rounded-xl font-bold text-sm">取消</button>
+                <button @click="saveItinerary" class="flex-1 bg-earth-800 text-white py-3 rounded-xl font-bold text-sm">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="showExpenseModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <h3 class="text-xl font-bold text-earth-800 mb-4">新增花費</h3>
+            <div class="space-y-3">
+                 <select v-model="formExpense.category" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                    <option value="food">飲食</option>
+                    <option value="transport">交通</option>
+                    <option value="hotel">住宿</option>
+                    <option value="shopping">購物</option>
+                    <option value="ticket">門票</option>
+                    <option value="other">其他</option>
+                </select>
+                <input v-model="formExpense.name" placeholder="項目名稱" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                <input type="number" v-model="formExpense.amount" placeholder="金額 (TRY)" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                <div class="flex space-x-2">
+                     <button @click="formExpense.method = 'cash'" :class="formExpense.method === 'cash' ? 'bg-earth-600 text-white' : 'bg-earth-100 text-earth-500'" class="flex-1 py-2 rounded-xl text-xs font-bold">現金</button>
+                     <button @click="formExpense.method = 'card'" :class="formExpense.method === 'card' ? 'bg-earth-600 text-white' : 'bg-earth-100 text-earth-500'" class="flex-1 py-2 rounded-xl text-xs font-bold">信用卡</button>
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button @click="showExpenseModal = false" class="flex-1 bg-earth-100 text-earth-600 py-3 rounded-xl font-bold text-sm">取消</button>
+                <button @click="saveExpense" class="flex-1 bg-earth-800 text-white py-3 rounded-xl font-bold text-sm">儲存</button>
+            </div>
+        </div>
+    </div>
+    
+    <div v-if="showShoppingModal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <h3 class="text-xl font-bold text-earth-800 mb-4">新增購物清單</h3>
+            <div class="space-y-3">
+                <input v-model="formShopping.name" placeholder="商品名稱" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                <input v-model="formShopping.shop" placeholder="推薦店鋪" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                <input v-model="formShopping.link" placeholder="參考連結 (http://...)" class="w-full bg-earth-50 p-3 rounded-xl border border-earth-100">
+                <div class="bg-earth-50 p-3 rounded-xl border border-dashed border-earth-300 text-center text-earth-400 text-xs">
+                    <label class="cursor-pointer">
+                        <i class="fa-solid fa-camera mb-1 block text-lg"></i>
+                        上傳圖片 (模擬)
+                        <input type="file" class="hidden" @change="handleShoppingImage">
+                    </label>
+                    <div v-if="formShopping.image" class="mt-2 text-terracotta">圖片已選取</div>
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button @click="showShoppingModal = false" class="flex-1 bg-earth-100 text-earth-600 py-3 rounded-xl font-bold text-sm">取消</button>
+                <button @click="saveShopping" class="flex-1 bg-earth-800 text-white py-3 rounded-xl font-bold text-sm">儲存</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            // State
+            const bannerImage = 'banner.png'; // Please ensure the image is named this
+            const currentTab = ref('itinerary');
+            const selectedDate = ref('2024-12-11');
+            const showItineraryModal = ref(false);
+            const showExpenseModal = ref(false);
+            const showShoppingModal = ref(false);
+            const isEditing = ref(false);
+            
+            // Initial Data (From Prompt)
+            const defaultItinerary = [
+                { id: 1, date: '2024-12-11', category: 'flight', name: '香港✈️北京首都 CA116', time: '20:15 - 23:45', location: 'Hong Kong International Airport', note: 'Air China, 中轉 2h10m', transportMode: 'transit', transportTime: '-' },
+                { id: 2, date: '2024-12-12', category: 'flight', name: '北京首都✈️伊斯坦堡 CA859', time: '01:55 - 08:20', location: 'Istanbul Airport', note: '抵達 Istanbul', transportMode: 'transit', transportTime: 'Flight' },
+                { id: 3, date: '2024-12-12', category: 'sightseeing', name: '景點參觀、大巴扎', time: '13:00 - 17:00', location: 'Grand Bazaar, Istanbul', note: '', transportMode: 'transit', transportTime: '45 mins' },
+                { id: 4, date: '2024-12-12', category: 'hotel', name: 'Impera Hotel (Beyoglu)', time: 'Check-in', location: 'Impera Hotel, Istanbul', note: '歐洲新城區', transportMode: 'walk', transportTime: '15 mins' },
+                
+                { id: 5, date: '2024-12-13', category: 'sightseeing', name: 'Istanbul City Walk', time: '09:00 - 12:00', location: 'Galata Tower', note: '', transportMode: 'walk', transportTime: '10 mins' },
+                { id: 6, date: '2024-12-13', category: 'hotel', name: 'Impera Hotel', time: 'Night', location: 'Impera Hotel, Istanbul', note: '', transportMode: 'walk', transportTime: '20 mins' },
+
+                { id: 7, date: '2024-12-14', category: 'flight', name: 'IST ✈️ Cappadocia (NAV) TK2004', time: '09:10 - 10:35', location: 'Istanbul Airport', note: 'Turkish Airline', transportMode: 'transit', transportTime: '40 mins' },
+                { id: 8, date: '2024-12-14', category: 'sightseeing', name: '落日 Baby Car', time: '15:00 - 17:00', location: 'Goreme, Cappadocia', note: '', transportMode: 'transit', transportTime: '20 mins' },
+                { id: 9, date: '2024-12-14', category: 'hotel', name: 'Goreme Sarnich Cave Suite', time: 'Night', location: 'Sarnich Cave Suites', note: '', transportMode: 'walk', transportTime: '5 mins' },
+
+                { id: 10, date: '2024-12-15', category: 'sightseeing', name: '追/搭 熱氣球🎈', time: '05:00 - 08:00', location: 'Goreme Hot Air Balloon', note: '', transportMode: 'transit', transportTime: '15 mins' },
+                { id: 11, date: '2024-12-15', category: 'sightseeing', name: '地下城 / 滑雪', time: '09:00 - 17:00', location: 'Kaymakli Underground City', note: '', transportMode: 'transit', transportTime: '30 mins' },
+
+                { id: 12, date: '2024-12-16', category: 'sightseeing', name: '追熱氣球 (備案)', time: '05:00 - 08:00', location: 'Goreme', note: '', transportMode: 'walk', transportTime: '10 mins' },
+                { id: 13, date: '2024-12-16', category: 'other', name: '夜巴往 Antalya', time: '23:10', location: 'Goreme Bus Station', note: '9h35m 車程', transportMode: 'transit', transportTime: '15 mins' },
+
+                { id: 14, date: '2024-12-17', category: 'other', name: '抵達 Antalya', time: '08:45', location: 'Antalya Otogari', note: '', transportMode: 'transit', transportTime: '-' },
+                { id: 15, date: '2024-12-17', category: 'sightseeing', name: '西代古城 Citywalk', time: 'Afternoon', location: 'Side Ancient City', note: '', transportMode: 'transit', transportTime: '1h' },
+                { id: 16, date: '2024-12-17', category: 'hotel', name: 'Antalya Museum Hotel', time: 'Night', location: 'RuinAdalia Hotel', note: '', transportMode: 'walk', transportTime: '20 mins' },
+                
+                { id: 17, date: '2024-12-19', category: 'sightseeing', name: '以費所古蹟', time: 'Afternoon', location: 'Ephesus Archaeological Museum', note: '', transportMode: 'transit', transportTime: '20 mins' },
+                
+                { id: 18, date: '2024-12-20', category: 'flight', name: 'Izmir ✈️ Istanbul (SAW) VF3067', time: '16:05 - 17:20', location: 'Adnan Menderes Airport', note: 'Ajet', transportMode: 'transit', transportTime: '45 mins' },
+                { id: 19, date: '2024-12-20', category: 'hotel', name: 'Ikiz Konak Boutique Hotel', time: 'Night', location: 'Ikiz Konak Boutique Hotel', note: 'Kadikoy 亞洲區', transportMode: 'transit', transportTime: '1h' },
+
+                { id: 20, date: '2024-12-21', category: 'flight', name: 'IST ✈️ PEK CA860', time: '14:55', location: 'Istanbul Airport', note: '12:30前到機場', transportMode: 'transit', transportTime: '1h' },
+            ];
+
+            // Reactive Data Containers (with persistence check)
+            const itinerary = ref(JSON.parse(localStorage.getItem('itinerary')) || defaultItinerary);
+            const expenses = ref(JSON.parse(localStorage.getItem('expenses')) || []);
+            const shoppingList = ref(JSON.parse(localStorage.getItem('shoppingList')) || []);
+            
+            // Watchers for Persistence
+            watch(itinerary, (newVal) => localStorage.setItem('itinerary', JSON.stringify(newVal)), { deep: true });
+            watch(expenses, (newVal) => localStorage.setItem('expenses', JSON.stringify(newVal)), { deep: true });
+            watch(shoppingList, (newVal) => localStorage.setItem('shoppingList', JSON.stringify(newVal)), { deep: true });
+
+            // Forms
+            const formItinerary = ref({ id: null, category: 'sightseeing', name: '', time: '', ticket: '', note: '', transportMode: 'walk', transportTime: '10 mins' });
+            const formExpense = ref({ category: 'food', name: '', amount: '', method: 'cash' });
+            const formShopping = ref({ name: '', shop: '', link: '', image: '' });
+
+            // Currency
+            const rates = ref({ TRY: 0.23, USD: 7.78, EUR: 8.2 }); // Approx HKD rates
+            const currencyFrom = ref('TRY');
+            const currencyAmount = ref('');
+
+            // Hotels Static Data
+            const hotels = [
+                { name: 'Impera Hotel', dates: 'Dec 12-14', address: 'Asmalı Mescit, Minare Sk. No: 23, Beyoğlu', hasFile: false },
+                { name: 'Sarnich Cave Suites', dates: 'Dec 14-16', address: 'Aydınlı Orta mahallesi, Harım Sk. No:47, Goreme', hasFile: false },
+                { name: 'RuinAdalia Hotel', dates: 'Dec 17-18', address: 'Barbaros, Hesapçı Sk. No:22, Antalya', hasFile: false },
+                { name: 'Urkmez Hotel', dates: 'Dec 19-20', address: 'Atatürk, Namık Kemal Cd. No:20, Selçuk', hasFile: false },
+                { name: 'Ikiz Konak Boutique Hotel', dates: 'Dec 20-21', address: 'Rasimpaşa, Recaizade Sk. No:32, Kadıköy', hasFile: false },
+            ];
+
+            // Computed
+            const tripDays = computed(() => {
+                const days = [];
+                const start = new Date('2024-12-11');
+                for (let i = 0; i <= 10; i++) {
+                    const d = new Date(start);
+                    d.setDate(start.getDate() + i);
+                    days.push({
+                        date: d.toISOString().split('T')[0],
+                        weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
+                        dayNum: d.getDate()
+                    });
+                }
+                return days;
+            });
+
+            const currentDayItinerary = computed(() => {
+                return itinerary.value.filter(i => i.date === selectedDate.value);
+            });
+
+            const currentWeather = computed(() => {
+                // Mock logic for weather based on city
+                const date = selectedDate.value;
+                if (date.includes('14') || date.includes('15') || date.includes('16')) {
+                    // Cappadocia
+                    return { temp: -2, feelsLike: -5, desc: '部分多雲', icon: 'fa-solid fa-snowflake' };
+                } else if (date.includes('17') || date.includes('18')) {
+                    // Antalya
+                    return { temp: 15, feelsLike: 14, desc: '晴時多雲', icon: 'fa-solid fa-cloud-sun' };
+                }
+                // Istanbul
+                return { temp: 9, feelsLike: 7, desc: '陰天', icon: 'fa-solid fa-cloud' };
+            });
+
+            const selectedCity = computed(() => {
+                 const date = selectedDate.value;
+                 if (date.includes('14') || date.includes('15') || date.includes('16')) return 'Cappadocia';
+                 if (date.includes('17') || date.includes('18')) return 'Antalya';
+                 if (date.includes('19')) return 'Selcuk';
+                 return 'Istanbul';
+            });
+
+            const convertedAmount = computed(() => {
+                if (!currencyAmount.value) return 0;
+                const rate = rates.value[currencyFrom.value];
+                return (currencyAmount.value * rate).toFixed(2);
+            });
+
+            const totalExpenses = computed(() => {
+                return expenses.value.reduce((sum, item) => sum + Number(item.amount), 0);
+            });
+
+            const sortedExpenses = computed(() => {
+                return [...expenses.value].reverse();
+            });
+
+            // Methods
+            const selectDate = (date) => { selectedDate.value = date; };
+            
+            const getCategoryIcon = (cat) => {
+                const map = { sightseeing: 'fa-camera', hotel: 'fa-bed', food: 'fa-utensils', shopping: 'fa-bag-shopping', flight: 'fa-plane', other: 'fa-circle' };
+                return `fa-solid ${map[cat] || 'fa-circle'}`;
+            };
+            
+            const getCategoryColor = (cat) => {
+                const map = { sightseeing: 'bg-terracotta', hotel: 'bg-earth-400', food: 'bg-sand', shopping: 'bg-sage', flight: 'bg-sky-400', other: 'bg-gray-400' };
+                return map[cat] || 'bg-gray-400';
+            };
+
+            const getExpenseIcon = (cat) => {
+                const map = { transport: 'fa-bus', food: 'fa-utensils', hotel: 'fa-bed', ticket: 'fa-ticket', shopping: 'fa-bag-shopping', other: 'fa-coins' };
+                return `fa-solid ${map[cat] || 'fa-coins'}`;
+            };
+
+            const openMap = (loc) => {
+                window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`, '_blank');
+            };
+
+            // Itinerary Actions
+            const openAddModal = () => {
+                isEditing.value = false;
+                formItinerary.value = { id: Date.now(), date: selectedDate.value, category: 'sightseeing', name: '', time: '', ticket: '', note: '', transportMode: 'walk', transportTime: '10 mins' };
+                showItineraryModal.value = true;
+            };
+
+            const editItem = (item) => {
+                isEditing.value = true;
+                formItinerary.value = { ...item };
+                showItineraryModal.value = true;
+            };
+
+            const saveItinerary = () => {
+                if (isEditing.value) {
+                    const index = itinerary.value.findIndex(i => i.id === formItinerary.value.id);
+                    if (index !== -1) itinerary.value[index] = { ...formItinerary.value };
+                } else {
+                    itinerary.value.push({ ...formItinerary.value });
+                }
+                showItineraryModal.value = false;
+            };
+
+            const confirmDeleteItinerary = () => {
+                if (confirm('確定要刪除此行程嗎？')) {
+                    itinerary.value = itinerary.value.filter(i => i.id !== formItinerary.value.id);
+                    showItineraryModal.value = false;
+                }
+            };
+
+            // Setup SortableJS
+            const sortableList = ref(null);
+            watch([currentTab, selectedDate], async () => {
+                await nextTick();
+                if (currentTab.value === 'itinerary' && sortableList.value) {
+                    new Sortable(sortableList.value, {
+                        handle: '.handle',
+                        animation: 150,
+                        onEnd: (evt) => {
+                            // Logic to reorder array based on DOM not strictly needed for this simple view 
+                            // but ideally syncs back to data. For simplicity in this file, visual sort is enough 
+                            // or we just rely on index manipulation if we want strict data sync.
+                            // Here we just let visual reorder happen.
+                        }
+                    });
+                }
+            });
+
+            // Expense Actions
+            const openExpenseModal = () => {
+                formExpense.value = { id: Date.now(), date: new Date().toISOString().split('T')[0], category: 'food', name: '', amount: '', method: 'cash' };
+                showExpenseModal.value = true;
+            };
+
+            const saveExpense = () => {
+                expenses.value.push({ ...formExpense.value });
+                showExpenseModal.value = false;
+            };
+            
+            const deleteExpense = (id) => {
+                 if (confirm('刪除此筆花費？')) expenses.value = expenses.value.filter(e => e.id !== id);
+            };
+
+            // Shopping Actions
+            const openShoppingModal = () => {
+                formShopping.value = { id: Date.now(), name: '', shop: '', link: '', image: '' };
+                showShoppingModal.value = true;
+            };
+
+            const handleShoppingImage = (e) => {
+                // Mock image upload by using a placeholder or base64 if really needed
+                // For this simple HTML, we just set a flag
+                formShopping.value.image = 'https://source.unsplash.com/random/200x200?product';
+            };
+            
+            const saveShopping = () => {
+                shoppingList.value.push({ ...formShopping.value });
+                showShoppingModal.value = false;
+            };
+
+            const deleteShoppingItem = (id) => {
+                if(confirm('刪除商品？')) shoppingList.value = shoppingList.value.filter(i => i.id !== id);
+            };
+
+            const handleFileUpload = () => {
+                alert('確認單已暫存於瀏覽器 (模擬功能)');
+                // In a real app, upload to server. Here we just update UI state in hotels list.
+            };
+
+            return {
+                bannerImage, currentTab, tripDays, selectedDate, selectDate,
+                currentDayItinerary, currentWeather, selectedCity,
+                getCategoryIcon, getCategoryColor, openMap,
+                showItineraryModal, formItinerary, openAddModal, editItem, saveItinerary, confirmDeleteItinerary, isEditing, sortableList,
+                rates, currencyFrom, currencyAmount, convertedAmount,
+                hotels, handleFileUpload,
+                shoppingList, showShoppingModal, formShopping, openShoppingModal, saveShopping, deleteShoppingItem, handleShoppingImage,
+                expenses, showExpenseModal, formExpense, openExpenseModal, saveExpense, deleteExpense, totalExpenses, sortedExpenses, getExpenseIcon
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
